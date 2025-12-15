@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Companion - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-header h1 {
+            color: #1f2937;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #10a37f;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: #10a37f;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .login-btn:hover {
+            background: #0d8f6f;
+        }
+
+        .login-btn:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .register-link a {
+            color: #10a37f;
+            text-decoration: none;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>AI Document Companion</h1>
+            <p>Sign in to your account</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
+            <div class="error-message" id="errorMessage"></div>
+        </form>
+
+        <div class="register-link">
+            Don't have an account? <a href="#" id="registerLink">Sign up</a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Signing in...';
+            errorMessage.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('user_token', data.token);
+                    localStorage.setItem('user_id', data.user_id);
+                    localStorage.setItem('username', data.username);
+                    window.location.href = 'index.html';
+                } else {
+                    errorMessage.textContent = data.error || 'Login failed';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Connection error. Please try again.';
+                errorMessage.style.display = 'block';
+            }
+            
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Sign In';
+        });
+        
+        document.getElementById('registerLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            showRegisterForm();
+        });
+        
+        function showRegisterForm() {
+            document.querySelector('.login-header h1').textContent = 'Create Account';
+            document.querySelector('.login-header p').textContent = 'Sign up for AI Document Companion';
+            document.getElementById('loginBtn').textContent = 'Sign Up';
+            document.querySelector('.register-link').innerHTML = 'Already have an account? <a href="#" onclick="showLoginForm()">Sign in</a>';
+            
+            document.getElementById('loginForm').onsubmit = async (e) => {
+                e.preventDefault();
+                await registerUser();
+            };
+        }
+        
+        function showLoginForm() {
+            document.querySelector('.login-header h1').textContent = 'AI Document Companion';
+            document.querySelector('.login-header p').textContent = 'Sign in to your account';
+            document.getElementById('loginBtn').textContent = 'Sign In';
+            document.querySelector('.register-link').innerHTML = 'Don\'t have an account? <a href="#" onclick="showRegisterForm()">Sign up</a>';
+            
+            document.getElementById('loginForm').onsubmit = async (e) => {
+                e.preventDefault();
+                await loginUser();
+            };
+        }
+        
+        async function registerUser() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Creating account...';
+            errorMessage.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('user_token', data.token);
+                    localStorage.setItem('user_id', data.user_id);
+                    localStorage.setItem('username', data.username);
+                    window.location.href = 'index.html';
+                } else {
+                    errorMessage.textContent = data.error || 'Registration failed';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Connection error. Please try again.';
+                errorMessage.style.display = 'block';
+            }
+            
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Sign Up';
+        }
+        
+        async function loginUser() {
+            // This is the same as the original login function
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Signing in...';
+            errorMessage.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('user_token', data.token);
+                    localStorage.setItem('user_id', data.user_id);
+                    localStorage.setItem('username', data.username);
+                    window.location.href = 'index.html';
+                } else {
+                    errorMessage.textContent = data.error || 'Login failed';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Connection error. Please try again.';
+                errorMessage.style.display = 'block';
+            }
+            
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Sign In';
+        }
+    </script>
+</body>
+</html>

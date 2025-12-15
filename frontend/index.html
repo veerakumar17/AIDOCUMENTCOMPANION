@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Companion</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+                
+                <div class="sidebar-section">
+                    <h3>Search</h3>
+                    <input type="text" class="search-input" id="searchChats" placeholder="Search chats...">
+                </div>
+                
+                <div class="sidebar-section">
+                    <h3>Library</h3>
+                    <div class="library-items">
+                        <div class="library-item" id="myDocuments">My Documents</div>
+                    </div>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h3>Recent Chats</h3>
+                    <div class="chat-history" id="chatHistory">
+                        <div class="chat-item active">
+                            <span class="chat-name">New Chat</span>
+                            <button class="delete-btn" onclick="event.stopPropagation(); deleteChat(this)">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Navigation Bar -->
+            <div class="navbar">
+                <div class="nav-left">
+                    <h1>AI Document Companion</h1>
+                </div>
+                <div class="nav-right">
+                    <button class="user-btn" id="userBtn"></button>
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="chat-interface" id="chatInterface">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot-message">
+                        <div class="message-content">
+                            <p>Hello! I'm your AI Document Companion. Upload a document and ask me questions about it, or just chat with me directly.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Documents Page -->
+            <div class="documents-page" id="documentsPage" style="display: none;">
+                <div class="documents-header">
+                    <button class="back-btn" id="backToChat">← Back to Chat</button>
+                    <h2>My Documents</h2>
+                </div>
+                <div class="documents-grid" id="documentsGrid">
+                    <!-- Documents will be loaded here -->
+                </div>
+            </div>
+
+                <!-- Input Area -->
+                <div class="input-area">
+                    <div class="input-container">
+                        <button class="attach-btn" id="uploadBtn">+</button>
+                        <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.pptx,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.bmp,.webp" style="display: none;">
+                        
+                        <div class="input-wrapper">
+                            <textarea id="messageInput" placeholder="Ask me anything about your documents..." rows="1"></textarea>
+                            <button class="send-btn" id="sendBtn">↑</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
