@@ -20,13 +20,11 @@ env/
 *.env
 
 # Uploads (personal documents)
-backend/uploads/*
-!backend/uploads/.gitkeep
+backend/uploads/
 backend/backend/
 
 # Vector store (generated at runtime)
-backend/vector_store/*
-!backend/vector_store/.gitkeep
+backend/vector_store/
 
 # IDE
 .vscode/

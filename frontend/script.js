@@ -1,6 +1,6 @@
 class ChatBot {
     constructor() {
-        this.apiBase = typeof API_BASE !== 'undefined' ? API_BASE : 'http://localhost:8000';
+        this.apiBase = 'http://localhost:8000';
         this.currentFile = null;
         this.chats = [];
         this.currentChatId = 0;

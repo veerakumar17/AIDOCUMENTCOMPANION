@@ -51,7 +51,7 @@ app = FastAPI()
 security = HTTPBearer()
 
 # JWT settings
-JWT_SECRET = os.environ.get("JWT_SECRET", "your-secret-key-change-in-production")
+JWT_SECRET = "your-secret-key-change-in-production"
 JWT_ALGORITHM = "HS256"
 
 # CORS
