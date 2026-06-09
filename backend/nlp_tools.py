@@ -10,7 +10,16 @@ try:
 except:
     print("[WARNING] NLTK punkt download failed - using fallback tokenization")
 nlp = spacy.load("en_core_web_sm")
-kw_model = KeyBERT()
+
+_kw_model = None
+def _get_kw_model():
+    global _kw_model
+    if _kw_model is None:
+        try:
+            _kw_model = KeyBERT()
+        except Exception as e:
+            print(f"[WARNING] KeyBERT init failed: {e}")
+    return _kw_model
 
 # ------- FUNCTIONS --------
 
@@ -19,7 +28,10 @@ def extract_entities(text):
     return [(ent.text, ent.label_) for ent in doc.ents]
 
 def extract_keywords(text, num_keywords=5):
-    keywords = kw_model.extract_keywords(text, top_n=num_keywords)
+    model = _get_kw_model()
+    if model is None:
+        return []
+    keywords = model.extract_keywords(text, top_n=num_keywords)
     return [kw[0] for kw in keywords]
 
 def detect_language(text):

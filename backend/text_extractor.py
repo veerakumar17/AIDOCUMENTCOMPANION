@@ -4,25 +4,21 @@ import fitz  # PyMuPDF
 import docx
 from pptx import Presentation
 def validate_file_path(file_path: str) -> Path:
-    # Convert to Path object and resolve to absolute path
     path = Path(file_path).resolve()
-    
-    # Define allowed directories (uploads and vector_store)
+    base = Path(__file__).parent.resolve()
+
     allowed_dirs = [
-        Path("uploads").resolve(),
-        Path("vector_store").resolve(),
-        Path("backend/uploads").resolve(),
-        Path("backend/vector_store").resolve()
+        base / "uploads",
+        base / "vector_store",
     ]
-    
-    # Check if path is within allowed directories
+
     for allowed_dir in allowed_dirs:
         try:
             path.relative_to(allowed_dir)
             return path
         except ValueError:
             continue
-    
+
     raise ValueError(f"Access denied: file path outside allowed directories")
 
 def extract_text(file_path: str) -> str:

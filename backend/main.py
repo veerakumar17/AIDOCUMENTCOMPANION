@@ -4,7 +4,6 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 import hashlib
 from datetime import datetime, timedelta
-
 from pathlib import Path
 import shutil
 import requests
@@ -52,7 +51,7 @@ app = FastAPI()
 security = HTTPBearer()
 
 # JWT settings
-JWT_SECRET = "your-secret-key-change-in-production"
+JWT_SECRET = os.environ.get("JWT_SECRET", "your-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 
 # CORS
@@ -90,18 +89,18 @@ def query_llama3(prompt: str, task: str = "answer", retry: int = 1) -> str:
         return requests.post(
             ollama_url_chat,
             json={
-                "model": "llama3",
+                "model": "llama3:latest",
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": False
             },
-            timeout=180  # increased timeout
+            timeout=180
         )
 
     def call_generate():
         return requests.post(
             ollama_url_generate,
-            json={"model": "llama3", "prompt": prompt, "stream": False},
-            timeout=180  # increased timeout
+            json={"model": "llama3:latest", "prompt": prompt, "stream": False},
+            timeout=180
         )
 
     # Try Chat API first
@@ -111,20 +110,24 @@ def query_llama3(prompt: str, task: str = "answer", retry: int = 1) -> str:
             if response.ok:
                 return response.json()['message']['content']
             else:
-                print(f"Ollama chat API error {response.status_code}: {response.text}")
+                print(f"Ollama chat API error {response.status_code}: {response.text[:200]}")
         except Exception as e:
             print(f"LLaMA chat API failed: {e}")
 
         try:
             response = call_generate()
             if response.ok:
-                return response.json().get("response", "")
+                result = response.json().get("response", "")
+                if result:
+                    return result
+                print(f"Ollama generate returned empty response")
             else:
-                print(f"Ollama generate API error {response.status_code}: {response.text}")
+                print(f"Ollama generate API error {response.status_code}: {response.text[:200]}")
         except Exception as e:
             print(f"LLaMA generate API failed: {e}")
 
-        print(f"Retrying LLaMA request... attempt {attempt+1} of {retry}")
+        if attempt < retry:
+            print(f"Retrying LLaMA request... attempt {attempt+1} of {retry}")
 
     # If all fails, return fallback
     if task == "answer":
@@ -141,6 +144,44 @@ def warmup_llama():
         print("LLaMA warm-up complete!")
     except Exception as e:
         print(f"LLaMA warm-up failed: {e}")
+
+def _extract_from_disk(file_path: str, filename: str) -> str:
+    """Extract text from file on disk, with OCR fallback for image-based PDFs."""
+    content = ""
+    try:
+        if TEXT_EXTRACTION_AVAILABLE:
+            content = extract_text(file_path)
+        elif filename.lower().endswith('.pdf'):
+            doc = fitz.open(file_path)
+            content = "".join(doc[i].get_text() for i in range(len(doc)))
+            doc.close()
+        elif filename.lower().endswith('.txt'):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+    except Exception as e:
+        print(f"[extract] Primary extraction failed for {filename}: {e}")
+
+    # OCR fallback for image-based/scanned PDFs
+    if not content and filename.lower().endswith('.pdf') and IMAGE_HANDLER_AVAILABLE:
+        try:
+            print(f"[extract] Trying OCR fallback for scanned PDF: {filename}")
+            from PIL import Image
+            import io
+            doc = fitz.open(file_path)
+            ocr_parts = []
+            for page in doc:
+                pix = page.get_pixmap(dpi=200)
+                img = Image.open(io.BytesIO(pix.tobytes("png")))
+                ocr_parts.append(extract_text_from_image(img))
+            doc.close()
+            content = "\n".join(filter(None, ocr_parts))
+            if content:
+                print(f"[extract] OCR fallback succeeded for {filename}")
+        except Exception as e:
+            print(f"[extract] OCR fallback failed for {filename}: {e}")
+
+    return content.strip()
+
 
 def process_full_document(file_path: str, filename: str):
     """Background processing: extract full text and create RAG index"""
@@ -280,6 +321,16 @@ async def ask_question(payload: dict, credentials: HTTPAuthorizationCredentials 
     if not filename:
         return {"answer": "I'd be happy to help! Please upload a document or image first, then ask your question about its content."}
 
+    # Re-populate from disk if missing from memory (handles server restarts)
+    if not uploaded_content.get(filename):
+        file_path = UPLOAD_DIR / filename
+        if file_path.exists():
+            content = _extract_from_disk(str(file_path), filename)
+            if content:
+                uploaded_content[filename] = content
+                if not uploaded_content.get(filename + "_indexed"):
+                    Thread(target=process_full_document, args=(str(file_path), filename)).start()
+
     # Detect summarization requests
     summarize_keywords = ["summarize", "summary", "overview", "brief", "sum up", "main points", "key points"]
     if any(word in question.lower() for word in summarize_keywords):
@@ -325,8 +376,19 @@ async def ask_question(payload: dict, credentials: HTTPAuthorizationCredentials 
     
     # Fallback to original approach
     content = uploaded_content.get(filename, "")
+
     if not content:
-        return {"error": f"File {filename} not found."}
+        file_path = UPLOAD_DIR / filename
+        if not file_path.exists():
+            return {"error": f"File {filename} not found. Please re-upload the document."}
+        content = _extract_from_disk(str(file_path), filename)
+        if content:
+            uploaded_content[filename] = content
+            if not uploaded_content.get(filename + "_indexed"):
+                Thread(target=process_full_document, args=(str(file_path), filename)).start()
+
+    if not content:
+        return {"error": f"Could not extract text from {filename}. The PDF may be scanned/image-based with no selectable text."}
 
     # NLP analysis for fallback with improved handling
     nlp_hints = "NLP hints not available"
@@ -423,10 +485,10 @@ async def analyze_image(file: UploadFile = File(...), question: str = Form("")):
 async def healthcheck():
     """Check if Ollama + LLaMA 3 is available"""
     try:
-        r = requests.post("http://localhost:11434/api/tags", timeout=5)
+        r = requests.get("http://localhost:11434/api/tags", timeout=5)
         if r.ok:
             models = r.json().get("models", [])
-            llama_available = any("llama3" in model.get("name", "") for model in models)
+            llama_available = any("llama3" in model.get("name", "").lower() for model in models)
             return {
                 "ollama": "running",
                 "models": [model.get("name") for model in models],
@@ -600,4 +662,9 @@ if __name__ == "__main__":
     print("Starting AI Document Companion Backend...")
     print("Server will be available at: http://localhost:8000")
     print("API documentation at: http://localhost:8000/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    except KeyboardInterrupt:
+        print("\nServer stopped.")
+    except SystemExit:
+        pass

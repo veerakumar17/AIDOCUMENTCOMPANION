@@ -1,0 +1,2 @@
+# This directory stores FAISS vector indices at runtime.
+# It is intentionally empty in the repository.
